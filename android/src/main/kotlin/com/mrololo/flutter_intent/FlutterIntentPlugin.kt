@@ -104,7 +104,7 @@ class FlutterIntentPlugin : MethodCallHandler {
     }
 
     override fun onMethodCall(call: MethodCall, result: Result) {
-        if (call.method == "launch") {
+        if (call.method == "startActivity") {
             val context = getActiveContext()
             val action: String = convertAction(call.argument("action")!!)
             val intent = Intent(action)
@@ -131,9 +131,6 @@ class FlutterIntentPlugin : MethodCallHandler {
             if (call.argument("type") as String? != null) {
                 intent.setType(call.argument("type")!!)
             }
-
-
-
             if (call.argument("package") as String? != null) {
                 val packageName: String = call.argument("package")!!
                 intent.setPackage(packageName)
@@ -158,6 +155,37 @@ class FlutterIntentPlugin : MethodCallHandler {
             Log.i(TAG, "Sending intent $intent")
             context.startActivity(intent)
             result.success("gg")
+
+        } else if (call.method == "startShareActivity") {
+            val context = getActiveContext()
+            val action: String = convertAction(call.argument("action")!!)
+            val intent = Intent(action)
+            var name: String = call.argument("name")!!
+            if (call.argument("category") as String? != null) {
+                intent.addCategory(call.argument("category")!!)
+            }
+
+            if (call.argument("data") as String? != null) {
+                intent.setData(Uri.parse(call.argument("data")!!))
+            }
+
+            if (call.argument("arguments") as Map<*, *>? != null) {
+                intent.putExtras(convertArguments(call.argument("arguments")!!))
+            }
+
+            if (call.argument("type") as String? != null) {
+                intent.setType(call.argument("type")!!)
+            }
+
+            if (name == null) {
+                name = "Share";
+            }
+
+            Log.i(TAG, "startShareActivity")
+            Log.i(TAG, "Sending intent $intent")
+            context.startActivity(Intent.createChooser(intent, name))
+            result.success("gg")
+
         } else {
             result.notImplemented()
         }

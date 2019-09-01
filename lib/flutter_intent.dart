@@ -77,8 +77,11 @@ class FlutterIntent {
   /// Launch the intent.
   ///
   /// This works only on Android platforms.
-  Future<void> launch() async {
+  Future<void> startActivity() async {
     if (!_platform.isAndroid) {
+      return;
+    }
+    if (action == null) {
       return;
     }
     final Map<String, dynamic> args = <String, dynamic>{'action': action};
@@ -99,11 +102,41 @@ class FlutterIntent {
       if (componentName != null) {
         args['componentName'] = componentName;
       }
-
     }
     if (type != null) {
       args['type'] = type;
     }
-    await _channel.invokeMethod<void>('launch', args);
+    await _channel.invokeMethod<void>('startActivity', args);
+  }
+
+  Future<void> startShareActivity({String name}) async {
+    if (!_platform.isAndroid) {
+      return;
+    }
+    final Map<String, dynamic> args = <String, dynamic>{
+      'action': 'action_send'
+    };
+    if (flags != null) {
+      args['flags'] = convertFlags(flags);
+    }
+    if (category != null) {
+      args['category'] = category;
+    }
+    if (data != null) {
+      args['data'] = data;
+    }
+    if (arguments != null) {
+      args['arguments'] = arguments;
+    }
+    if (type != null) {
+      args['type'] = type;
+    }
+    if (name == null) {
+      args['name'] = 'Share';
+    } else {
+      args['name'] = name;
+    }
+
+    await _channel.invokeMethod<void>('startShareActivity', args);
   }
 }

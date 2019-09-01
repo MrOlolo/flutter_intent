@@ -26,7 +26,7 @@ class _MyAppState extends State<MyApp> {
         //data: Uri.encodeFull('https://flutter.io'),
         package: 'com.skype.m2',
       );
-      await intent.launch();
+      await intent.startActivity();
     }
   }
 
@@ -34,11 +34,10 @@ class _MyAppState extends State<MyApp> {
     if (Platform.isAndroid) {
       FlutterIntent intent = FlutterIntent(
           action: 'action_send',
-          package: 'com.viber.voip',
+          package: 'com.whatsapp',
           arguments: {'android.intent.extra.TEXT': "reflink"},
-          type: 'text/plain'
-      );
-      await intent.launch();
+          type: 'text/plain');
+      await intent.startActivity();
     }
   }
 
@@ -61,10 +60,25 @@ class _MyAppState extends State<MyApp> {
                 onPressed: goWithLinkToTelegram,
                 child: Text('GO'),
               ),
+              FlatButton(
+                onPressed: shareLink,
+                child: Text('SHARE'),
+              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  void shareLink() async {
+    if (Platform.isAndroid) {
+      FlutterIntent intent = FlutterIntent(
+          action: 'action_send',
+          package: 'com.viber.voip',
+          arguments: {'android.intent.extra.TEXT': "reflink"},
+          type: 'text/plain');
+      await intent.startShareActivity(name: 'Share reflink');
+    }
   }
 }
