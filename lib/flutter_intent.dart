@@ -17,8 +17,8 @@ class FlutterIntent {
   /// [package] refers to the package parameter of the intent, can be null.
   /// [componentName] refers to the component name of the intent, can be null.
   /// If not null, then [package] but also be provided.
-  const FlutterIntent({
-    @required this.action,
+  FlutterIntent({
+    required this.action,
     this.flags,
     this.category,
     this.data,
@@ -26,16 +26,15 @@ class FlutterIntent {
     this.package,
     this.componentName,
     this.type,
-    Platform platform,
-  })  : assert(action != null),
-        _channel = const MethodChannel(kChannelName),
+    Platform? platform,
+  })  : _channel = const MethodChannel(kChannelName),
         _platform = platform ?? const LocalPlatform();
 
   @visibleForTesting
   FlutterIntent.private({
-    @required this.action,
-    @required Platform platform,
-    @required MethodChannel channel,
+    required this.action,
+    required Platform platform,
+    required MethodChannel channel,
     this.flags,
     this.category,
     this.data,
@@ -47,15 +46,15 @@ class FlutterIntent {
         _platform = platform;
 
   final String action;
-  final List<int> flags;
-  final String category;
-  final String data;
-  final Map<String, dynamic> arguments;
-  final String package;
-  final String componentName;
+  final List<int>? flags;
+  final String? category;
+  final String? data;
+  final Map<String, dynamic>? arguments;
+  final String? package;
+  final String? componentName;
   final MethodChannel _channel;
   final Platform _platform;
-  final String type;
+  final String? type;
 
   bool _isPowerOfTwo(int x) {
     /* First x in the below expression is for the case when x is 0 */
@@ -86,7 +85,7 @@ class FlutterIntent {
     }
     final Map<String, dynamic> args = <String, dynamic>{'action': action};
     if (flags != null) {
-      args['flags'] = convertFlags(flags);
+      args['flags'] = convertFlags(flags!);
     }
     if (category != null) {
       args['category'] = category;
@@ -109,7 +108,7 @@ class FlutterIntent {
     await _channel.invokeMethod<void>('startActivity', args);
   }
 
-  Future<void> startShareActivity({String name}) async {
+  Future<void> startShareActivity({String? name}) async {
     if (!_platform.isAndroid) {
       return;
     }
@@ -117,7 +116,7 @@ class FlutterIntent {
       'action': 'action_send'
     };
     if (flags != null) {
-      args['flags'] = convertFlags(flags);
+      args['flags'] = convertFlags(flags!);
     }
     if (category != null) {
       args['category'] = category;
