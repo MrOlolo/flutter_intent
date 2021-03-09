@@ -34,7 +34,7 @@ class _MyAppState extends State<MyApp> {
     if (Platform.isAndroid) {
       FlutterIntent intent = FlutterIntent(
           action: 'action_send',
-          package: 'com.whatsapp',
+          package: 'org.telegram.messenger',
           arguments: {'android.intent.extra.TEXT': "reflink"},
           type: 'text/plain');
       await intent.startActivity();

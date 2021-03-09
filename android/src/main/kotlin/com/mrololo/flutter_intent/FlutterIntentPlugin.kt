@@ -1,45 +1,55 @@
 package com.mrololo.flutter_intent
 
+import android.R
+import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.provider.Settings
 import android.util.Log
-
+import android.widget.Toast
+import androidx.annotation.NonNull
+import androidx.core.content.ContextCompat.startActivity
+import io.flutter.embedding.engine.plugins.FlutterPlugin
+import io.flutter.embedding.engine.plugins.activity.ActivityAware
+import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
-import io.flutter.plugin.common.PluginRegistry.Registrar
 
-class FlutterIntentPlugin : MethodCallHandler {
-    private val TAG = FlutterIntentPlugin::class.java!!.getCanonicalName()
-    private val mRegistrar: Registrar
 
-    companion object {
-        @JvmStatic
-        fun registerWith(registrar: Registrar) {
-            val channel = MethodChannel(registrar.messenger(), "com.mrololo/flutter_intent")
-            channel.setMethodCallHandler(FlutterIntentPlugin(registrar))
-        }
+class FlutterIntentPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
+    private val _tag = FlutterIntentPlugin::class.java.canonicalName
+    private var channel: MethodChannel? = null
+
+    private lateinit var context: Context
+    private var activity: Activity? = null
+
+    override fun onAttachedToEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
+        context = binding.applicationContext
+
+        channel = MethodChannel(binding.binaryMessenger, "com.mrololo/flutter_intent")
+        channel?.setMethodCallHandler(this)
+
     }
 
-    constructor(registrar: Registrar) {
-        mRegistrar = registrar
+    override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        channel?.let {
+            it.setMethodCallHandler(null)
+            channel = null
+        }
+
     }
 
     private fun convertAction(action: String): String {
-        when (action) {
-            "action_view" -> return Intent.ACTION_VIEW
-            "action_send" -> return Intent.ACTION_SEND
-            else -> return action
+        return when (action) {
+            "action_view" -> Intent.ACTION_VIEW
+            "action_send" -> Intent.ACTION_SEND
+            else -> action
         }
-    }
-
-    private fun getActiveContext(): Context {
-        return mRegistrar.activity() ?: mRegistrar.context()
     }
 
     private fun convertArguments(arguments: Map<String, *>): Bundle {
@@ -47,7 +57,7 @@ class FlutterIntentPlugin : MethodCallHandler {
         for (key in arguments.keys) {
             val value = arguments[key]
             if (value is Int) {
-                bundle.putInt(key, value as Int)
+                bundle.putInt(key, value)
             } else if (value is String) {
                 bundle.putString(key, value)
             } else if (value is Boolean) {
@@ -81,8 +91,7 @@ class FlutterIntentPlugin : MethodCallHandler {
         if (value !is ArrayList<*>) {
             return false
         }
-        val list = value as ArrayList<*>
-        for (o in list) {
+        for (o in value) {
             if (!(o == null || type.isInstance(o))) {
                 return false
             }
@@ -94,8 +103,7 @@ class FlutterIntentPlugin : MethodCallHandler {
         if (value !is Map<*, *>) {
             return false
         }
-        val map = value as Map<*, *>
-        for (key in map.keys) {
+        for (key in value.keys) {
             if (!(key == null || key is String)) {
                 return false
             }
@@ -105,22 +113,15 @@ class FlutterIntentPlugin : MethodCallHandler {
 
     override fun onMethodCall(call: MethodCall, result: Result) {
         if (call.method == "startActivity") {
-            val context = getActiveContext()
             val action: String = convertAction(call.argument("action")!!)
             val intent = Intent(action)
-//            mRegistrar.activity()?.let {
-//                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-//            }
-//            if (call.argument("flags") as Int? != null) {
-//                intent.addFlags(call.argument("flags")!!)
-//            }
 
             if (call.argument("category") as String? != null) {
                 intent.addCategory(call.argument("category")!!)
             }
 
             if (call.argument("data") as String? != null) {
-                intent.setData(Uri.parse(call.argument("data")!!))
+                intent.data = Uri.parse(call.argument("data")!!)
             }
 
 
@@ -129,44 +130,65 @@ class FlutterIntentPlugin : MethodCallHandler {
             }
 
             if (call.argument("type") as String? != null) {
-                intent.setType(call.argument("type")!!)
+                intent.type = call.argument("type")!!
             }
             if (call.argument("package") as String? != null) {
                 val packageName: String = call.argument("package")!!
                 intent.setPackage(packageName)
                 if (call.argument("componentName") as String? != null) {
-                    Log.i(TAG, "COMPONENT?")
-                    intent.setComponent(ComponentName(packageName, call.argument("componentName")!!))
+                    Log.i(_tag, "COMPONENT?")
+                    intent.component = ComponentName(packageName, call.argument("componentName")!!)
                 }
-                if (intent.resolveActivity(context.getPackageManager()) == null) {
-                    Log.i(TAG, "Cannot resolve explicit intent - ignoring package")
-                    Log.i(TAG, "Package name - $packageName")
+                if (activity != null) {
+                    Log.i(_tag, "startActivity")
+                    Log.i(_tag, "Sending intent $intent")
+
                     try {
-                        //context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$packageName")))
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName")))
-                    } catch (anfe: android.content.ActivityNotFoundException) {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$packageName")))
+                        activity!!.startActivity(intent)
+                        result.success(null)
+                    } catch (e: ActivityNotFoundException) {
+                        Log.i(_tag, "Cannot resolve explicit intent - ignoring package")
+                        Log.i(_tag, "Package name - $packageName")
+
+                        try {
+                            //context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$packageName")))
+                            activity!!.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName")))
+                            result.success(null)
+                        } catch (anfe: android.content.ActivityNotFoundException) {
+                            activity!!.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$packageName")))
+                            result.success(null)
+
+
+                        }
                     }
-                    result.error("Package not found", null, null)
+                } else {
+                    result.error("Activity is null", null, null)
                 }
+
+                return
+
             }
 
-            Log.i(TAG, "startActivity")
-            Log.i(TAG, "Sending intent $intent")
-            context.startActivity(intent)
-            result.success("gg")
+            if (activity != null) {
+                Log.i(_tag, "startActivity")
+                Log.i(_tag, "Sending intent $intent")
+                activity!!.startActivity(intent)
+                result.success(null)
+            } else {
+                result.error("Activity is null", null, null)
+            }
+
 
         } else if (call.method == "startShareActivity") {
-            val context = getActiveContext()
             val action: String = convertAction(call.argument("action")!!)
             val intent = Intent(action)
-            var name: String = call.argument("name")!!
+            val name: String = call.argument("name")!!
             if (call.argument("category") as String? != null) {
                 intent.addCategory(call.argument("category")!!)
             }
 
             if (call.argument("data") as String? != null) {
-                intent.setData(Uri.parse(call.argument("data")!!))
+                intent.data = Uri.parse(call.argument("data")!!)
             }
 
             if (call.argument("arguments") as Map<*, *>? != null) {
@@ -174,20 +196,38 @@ class FlutterIntentPlugin : MethodCallHandler {
             }
 
             if (call.argument("type") as String? != null) {
-                intent.setType(call.argument("type")!!)
+                intent.type = call.argument("type")!!
             }
 
-            if (name == null) {
-                name = "Share";
+            Log.i(_tag, "startShareActivity")
+            Log.i(_tag, "Sending intent $intent")
+            if (activity != null) {
+                activity!!.startActivity(Intent.createChooser(intent, name))
+                result.success(null)
+            } else {
+                result.error("Activity is null", null, null)
             }
-
-            Log.i(TAG, "startShareActivity")
-            Log.i(TAG, "Sending intent $intent")
-            context.startActivity(Intent.createChooser(intent, name))
-            result.success("gg")
 
         } else {
             result.notImplemented()
         }
     }
+
+    override fun onDetachedFromActivity() {
+        activity = null
+    }
+
+    override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
+        activity = binding.activity
+    }
+
+    override fun onAttachedToActivity(binding: ActivityPluginBinding) {
+        activity = binding.activity
+    }
+
+
+    override fun onDetachedFromActivityForConfigChanges() {
+        activity = null
+    }
+
 }
